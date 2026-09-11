@@ -3,47 +3,47 @@ module.exports = {
   // BOT
   // =====================
 
-  clientId: "PUT_CLIENT_ID_HERE",
-  guildId: "PUT_GUILD_ID_HERE",
+  clientId: "1547910111043911690",
+  guildId: "1489571427567796326",
 
   // =====================
   // ROLES
   // =====================
 
   // רול שמקבלים אחרי Verify
-  memberRoleId: "PUT_MEMBER_ROLE_ID_HERE",
+  memberRoleId: "1489580991734480976",
 
   // רול צוות:
   // מודרציה, !h, /rank, פאנל Verify וטיקטים
-  staffRoleId: "PUT_STAFF_ROLE_ID_HERE",
+  staffRoleId: "1530262361146003456",
 
   // רול Chat Mute
   // תגדיר לו Deny ל-Send Messages / Send Messages in Threads
   // אבל אל תחסום Connect / Speak ב-Voice
-  muteRoleId: "PUT_MUTE_ROLE_ID_HERE",
+  muteRoleId: "1547919633057714196",
 
   // =====================
   // MOD LOGS
   // =====================
 
   // אפשר להשאיר "" אם לא רוצים לוגים
-  modLogsChannelId: "PUT_MOD_LOGS_CHANNEL_ID_HERE",
+  modLogsChannelId: "1533958151525630043",
 
   // =====================
   // TICKETS
   // =====================
 
   // קטגוריה שבה ייפתחו הטיקטים
-  ticketCategoryId: "PUT_TICKET_CATEGORY_ID_HERE",
+  ticketCategoryId: "1489573588813086811",
 
   // רול צוות לטיקטים רגילים
-  ticketStaffRoleId: "PUT_TICKET_STAFF_ROLE_ID_HERE",
+  ticketStaffRoleId: "1530262361146003456",
 
   // רול נפרד לטיקט "בחינה לצוות"
-  staffTestTicketRoleId: "PUT_STAFF_TEST_TICKET_ROLE_ID_HERE",
+  staffTestTicketRoleId: "1547916330496163860",
 
   // חדר Transcript / לוג סגירת טיקטים
-  ticketLogsChannelId: "PUT_TICKET_LOGS_CHANNEL_ID_HERE",
+  ticketLogsChannelId: "1530571895186133092",
 
   // =====================
   // XP + CASINO
