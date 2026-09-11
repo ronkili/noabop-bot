@@ -82,6 +82,10 @@ const commands = [
     ),
 
   new SlashCommandBuilder()
+    .setName("setup-xp-shop")
+    .setDescription("שולח את פאנל ה-XP Shop של Noabop"),
+
+  new SlashCommandBuilder()
     .setName("rank")
     .setDescription("מציג Rank וסטטיסטיקות")
     .addUserOption(option =>
