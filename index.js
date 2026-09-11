@@ -1237,6 +1237,10 @@ const ticketTypes = {
     emoji: "🤝",
     name: "שיתוף פעולה"
   },
+  video_participation: {
+    emoji: "🎬",
+    name: "השתתפות בסרטון"
+  },
   staff_test: {
     emoji: "📝",
     name: "בחינה לצוות"
