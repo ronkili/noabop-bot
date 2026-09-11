@@ -34,13 +34,13 @@ module.exports = {
   // =====================
 
   // קטגוריה שבה ייפתחו הטיקטים
-  ticketCategoryId: "1489573588813086811",
+  ticketCategoryId: "1530574922814984363",
 
   // רול צוות לטיקטים רגילים
   ticketStaffRoleId: "1530262361146003456",
 
   // רול נפרד לטיקט "בחינה לצוות"
-  staffTestTicketRoleId: "1547916330496163860",
+  staffTestTicketRoleId: "1547920868964040784",
 
   // חדר Transcript / לוג סגירת טיקטים
   ticketLogsChannelId: "1530571895186133092",
@@ -66,5 +66,35 @@ module.exports = {
     5 * 1000,
 
   // XP לכל Level ב-/rank
-  rankXpPerLevel: 500
+  rankXpPerLevel: 500,
+
+  // =====================
+  // XP SHOP
+  // =====================
+
+  // שנה רק את roleId לרולים שאתה רוצה למכור.
+  // אפשר גם לשנות שמות / מחירים / אימוג'ים.
+  xpShop: [
+    {
+      key: "supporter",
+      name: "Noabop Supporter",
+      emoji: "💙",
+      price: 2500,
+      roleId: "1547924546688913429"
+    },
+    {
+      key: "elite",
+      name: "Noabop Elite",
+      emoji: "💎",
+      price: 5000,
+      roleId: "1547924662229667922"
+    },
+    {
+      key: "legend",
+      name: "Noabop Legend",
+      emoji: "👑",
+      price: 10000,
+      roleId: "1547924399129231420"
+    }
+  ]
 };
