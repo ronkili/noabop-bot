@@ -72,6 +72,7 @@ const messageXpCooldowns = new Map();
 const casinoCooldowns = new Map();
 const blackjackGames = new Map();
 const activeVoiceSessions = new Map();
+const xpPurchaseLocks = new Set();
 
 // =====================
 // CLIENT
@@ -312,6 +313,219 @@ function casinoInfoEmbed() {
     })
     .setTimestamp();
 }
+
+// =====================
+// XP SHOP
+// =====================
+
+function getXpShopItems() {
+  return Array.isArray(config.xpShop)
+    ? config.xpShop
+        .filter(item =>
+          item &&
+          item.key &&
+          item.name &&
+          item.roleId &&
+          Number(item.price) > 0
+        )
+        .slice(0, 25)
+    : [];
+}
+
+function buildXpShopPanel() {
+  const items = getXpShopItems();
+
+  if (!items.length) {
+    return null;
+  }
+
+  const description = items
+    .map(item =>
+      `${item.emoji || "🎁"} **${item.name}** — **${Number(item.price).toLocaleString("en-US")} XP**`
+    )
+    .join("\n");
+
+  const rows = [];
+
+  for (let i = 0; i < items.length; i += 5) {
+    const row = new ActionRowBuilder();
+
+    row.addComponents(
+      items.slice(i, i + 5).map(item =>
+        new ButtonBuilder()
+          .setCustomId(`xp_shop_buy:${item.key}`)
+          .setLabel(
+            `${item.name} • ${Number(item.price).toLocaleString("en-US")} XP`
+          )
+          .setEmoji(item.emoji || "🎁")
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
+
+    rows.push(row);
+  }
+
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setColor("Gold")
+        .setTitle("🛒 Noabop XP Shop")
+        .setDescription(
+          [
+            "קנה רולים בעזרת ה־XP הווירטואלי שלך.",
+            "",
+            description,
+            "",
+            "💡 ה־XP יורד רק אחרי שהרול ניתן בהצלחה."
+          ].join("\n")
+        )
+        .setFooter({
+          text: "Noabop XP Shop • Virtual XP only"
+        })
+        .setTimestamp()
+    ],
+    components: rows
+  };
+}
+
+async function handleXpShopPurchase(interaction, itemKey) {
+  const item = getXpShopItems()
+    .find(shopItem =>
+      shopItem.key === itemKey
+    );
+
+  if (!item) {
+    return interaction.reply({
+      content:
+        "❌ הפריט הזה כבר לא קיים ב־XP Shop.",
+      ephemeral: true
+    });
+  }
+
+  const lockKey =
+    `${interaction.guild.id}:${interaction.user.id}`;
+
+  if (xpPurchaseLocks.has(lockKey)) {
+    return interaction.reply({
+      content:
+        "⏳ כבר מתבצעת רכישה בחשבון שלך. נסה שוב בעוד רגע.",
+      ephemeral: true
+    });
+  }
+
+  xpPurchaseLocks.add(lockKey);
+
+  try {
+    const member =
+      await interaction.guild.members
+        .fetch(interaction.user.id)
+        .catch(() => null);
+
+    const role =
+      await interaction.guild.roles
+        .fetch(item.roleId)
+        .catch(() => null);
+
+    if (!member || !role) {
+      return interaction.reply({
+        content:
+          "❌ לא מצאתי את הרול של הפריט הזה.",
+        ephemeral: true
+      });
+    }
+
+    if (member.roles.cache.has(role.id)) {
+      return interaction.reply({
+        content:
+          "❌ כבר יש לך את הרול הזה.",
+        ephemeral: true
+      });
+    }
+
+    const profile =
+      getXpProfile(
+        interaction.guild.id,
+        interaction.user.id
+      );
+
+    const price =
+      Number(item.price);
+
+    if (profile.xp < price) {
+      return interaction.reply({
+        content:
+          `❌ אין לך מספיק XP.\nצריך **${price.toLocaleString("en-US")} XP**, ויש לך **${profile.xp.toLocaleString("en-US")} XP**.`,
+        ephemeral: true
+      });
+    }
+
+    const botMember =
+      await interaction.guild.members
+        .fetchMe()
+        .catch(() => null);
+
+    if (
+      !botMember ||
+      !botMember.permissions.has(
+        PermissionFlagsBits.ManageRoles
+      )
+    ) {
+      return interaction.reply({
+        content:
+          "❌ לבוט אין `Manage Roles`.",
+        ephemeral: true
+      });
+    }
+
+    if (
+      role.managed ||
+      role.position >=
+        botMember.roles.highest.position
+    ) {
+      return interaction.reply({
+        content:
+          "❌ הבוט לא יכול לתת את הרול הזה. תעלה את רול הבוט מעליו.",
+        ephemeral: true
+      });
+    }
+
+    try {
+      await member.roles.add(
+        role,
+        `Noabop XP Shop purchase: ${item.name}`
+      );
+    } catch (error) {
+      console.error(
+        "❌ XP Shop role add error:",
+        error
+      );
+
+      return interaction.reply({
+        content:
+          "❌ לא הצלחתי לתת את הרול. לא ירד לך XP.",
+        ephemeral: true
+      });
+    }
+
+    profile.xp =
+      Math.max(
+        0,
+        profile.xp - price
+      );
+
+    saveXp();
+
+    return interaction.reply({
+      content:
+        `✅ קנית **${item.name}** ב־**${price.toLocaleString("en-US")} XP**!\n` +
+        `💰 נשארו לך **${profile.xp.toLocaleString("en-US")} XP**.`,
+      ephemeral: true
+    });
+  } finally {
+    xpPurchaseLocks.delete(lockKey);
+  }
+}
+
 
 // =====================
 // BLACKJACK
@@ -948,6 +1162,61 @@ function verifyPanel() {
 }
 
 // =====================
+// STAFF EXAM
+// =====================
+
+function buildStaffExamEmbed() {
+  return new EmbedBuilder()
+    .setColor("Blue")
+    .setTitle("📝 בחינה לצוות")
+    .setDescription(
+      [
+        "ענה על כל השאלות בצורה רצינית ומפורטת.",
+        "",
+        "❓ **שאלה 1:**",
+        "מה תעשה אם משתמש מקלל מישהו בשרת?",
+        "",
+        "❓ **שאלה 2:**",
+        "איך תגיב במקרה של ריב בין משתמשים?",
+        "",
+        "❓ **שאלה 3:**",
+        "מה חשוב יותר בצוות: פעילות או אחריות?",
+        "",
+        "❓ **שאלה 4:**",
+        "מה תעשה אם חבר צוות עובר על חוקים?",
+        "",
+        "❓ **שאלה 5:**",
+        "איך תעזור למשתמש חדש?",
+        "",
+        "❓ **שאלה 6:**",
+        "מה תעשה נגד ספאם?",
+        "",
+        "❓ **שאלה 7:**",
+        "איך תטפל בקישורים אסורים?",
+        "",
+        "❓ **שאלה 8:**",
+        "למה אתה רוצה להיות צוות?",
+        "",
+        "❓ **שאלה 9:**",
+        "איזה תפקיד מתאים לך?",
+        "",
+        "❓ **שאלה 10:**",
+        "מה הופך איש צוות לטוב?",
+        "",
+        "❓ **ניסיון קודם:**",
+        "האם יש לך ניסיון בשרתים אחרים?",
+        "ואם כן — איזה תפקיד וכמה ממברים היו בשרת?"
+      ].join("\n")
+    )
+    .setFooter({
+      text:
+        "Noabop Staff Exam"
+    })
+    .setTimestamp();
+}
+
+
+// =====================
 // TICKETS
 // =====================
 
@@ -1216,6 +1485,14 @@ async function openTicket(interaction, type) {
       roles: staffRoleId ? [staffRoleId] : []
     }
   });
+
+  if (type === "staff_test") {
+    await channel.send({
+      embeds: [
+        buildStaffExamEmbed()
+      ]
+    });
+  }
 
   return interaction.reply({
     content:
@@ -2170,6 +2447,24 @@ client.on(
           );
         }
 
+        // XP SHOP
+
+        if (
+          interaction.customId
+            .startsWith("xp_shop_buy:")
+        ) {
+          const itemKey =
+            interaction.customId
+              .slice(
+                "xp_shop_buy:".length
+              );
+
+          return handleXpShopPurchase(
+            interaction,
+            itemKey
+          );
+        }
+
         // TICKETS
 
         if (
@@ -2373,6 +2668,48 @@ client.on(
         return interaction.reply({
           content:
             "✅ פאנל הטיקטים נשלח.",
+          ephemeral: true
+        });
+      }
+
+      if (
+        interaction.commandName ===
+        "setup-xp-shop"
+      ) {
+        if (!isStaff(interaction.member)) {
+          return interaction.reply({
+            content:
+              "❌ רק Staff יכול לשלוח את פאנל ה־XP Shop.",
+            ephemeral: true
+          });
+        }
+
+        if (!interaction.channel?.isTextBased()) {
+          return interaction.reply({
+            content:
+              "❌ אפשר לשלוח את הפאנל רק בחדר טקסט.",
+            ephemeral: true
+          });
+        }
+
+        const panel =
+          buildXpShopPanel();
+
+        if (!panel) {
+          return interaction.reply({
+            content:
+              "❌ אין פריטים תקינים ב־`xpShop` בתוך config.js.",
+            ephemeral: true
+          });
+        }
+
+        await interaction.channel.send(
+          panel
+        );
+
+        return interaction.reply({
+          content:
+            "✅ פאנל ה־XP Shop נשלח.",
           ephemeral: true
         });
       }
