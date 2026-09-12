@@ -182,6 +182,132 @@ function modEmbed(title, color, fields) {
 }
 
 // =====================
+// LEGACY PREFIX CLEANUP
+// =====================
+
+// The automatic prefix system was removed.
+// This only cleans old prefixes that may already exist in nicknames.
+const LEGACY_ROLE_PREFIXES = [
+  "VIP",
+  "HR",
+  "GR",
+  "MOD",
+  "SMD",
+  "SV",
+  "CA",
+  "AD",
+  "SA",
+  "AR",
+  "DEV",
+  "SM",
+  "CO"
+];
+
+function stripLegacyPrefix(name) {
+  let result =
+    String(name || "").trim();
+
+  for (
+    const prefix of
+    LEGACY_ROLE_PREFIXES
+  ) {
+    const escaped =
+      prefix.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+    result =
+      result.replace(
+        new RegExp(
+          `^${escaped}\\s*\\|\\s*`,
+          "i"
+        ),
+        ""
+      );
+  }
+
+  return result.trim();
+}
+
+async function cleanupLegacyPrefixNickname(member) {
+  if (
+    !member ||
+    member.user?.bot ||
+    !member.nickname
+  ) {
+    return;
+  }
+
+  const cleaned =
+    stripLegacyPrefix(
+      member.nickname
+    );
+
+  if (
+    cleaned === member.nickname ||
+    !cleaned
+  ) {
+    return;
+  }
+
+  const botMember =
+    member.guild.members.me ||
+    await member.guild.members
+      .fetchMe()
+      .catch(() => null);
+
+  if (
+    !botMember ||
+    !botMember.permissions.has(
+      PermissionFlagsBits.ManageNicknames
+    ) ||
+    member.id ===
+      member.guild.ownerId ||
+    member.roles.highest.position >=
+      botMember.roles.highest.position
+  ) {
+    return;
+  }
+
+  await member.setNickname(
+    cleaned.slice(0, 32),
+    "Noabop legacy prefix cleanup"
+  ).catch(error => {
+    console.error(
+      `⚠️ Could not clean old prefix for ${member.user.tag}:`,
+      error
+    );
+  });
+}
+
+async function cleanupLegacyPrefixes() {
+  for (
+    const guild of
+    client.guilds.cache.values()
+  ) {
+    const members =
+      await guild.members
+        .fetch()
+        .catch(() => null);
+
+    if (!members) {
+      continue;
+    }
+
+    for (
+      const member of
+      members.values()
+    ) {
+      await cleanupLegacyPrefixNickname(
+        member
+      );
+    }
+  }
+}
+
+
+// =====================
 // XP
 // =====================
 
@@ -1517,6 +1643,8 @@ client.once(Events.ClientReady, async readyClient => {
   await checkModTimers();
 
   initVoiceSessions();
+
+  await cleanupLegacyPrefixes();
 
   setInterval(() => {
     checkModTimers().catch(error => {
@@ -3380,7 +3508,37 @@ client.on(
 );
 
 // =====================
-// LOGIN
+// CONNECTION SAFETY
+// =====================
+
+// Discord.js emits network/WebSocket errors through the Client.
+// Without an "error" listener, Node treats them as unhandled
+// EventEmitter errors and can terminate the whole process.
+client.on("error", error => {
+  console.error(
+    "⚠️ Discord client error (kept alive):",
+    error
+  );
+});
+
+client.on("warn", warning => {
+  console.warn(
+    "⚠️ Discord client warning:",
+    warning
+  );
+});
+
+// Keep rejected async network operations from becoming an
+// unhandled process-level rejection.
+process.on("unhandledRejection", error => {
+  console.error(
+    "⚠️ Unhandled promise rejection (kept alive):",
+    error
+  );
+});
+
+// =====================
+// LOGIN WITH RETRY
 // =====================
 
 if (!process.env.TOKEN) {
@@ -3388,7 +3546,57 @@ if (!process.env.TOKEN) {
   process.exit(1);
 }
 
-client.login(process.env.TOKEN).catch(error => {
-  console.error("❌ Login error:", error);
-  process.exit(1);
-});
+let loginRetryTimer = null;
+let loginAttempt = 0;
+
+async function loginWithRetry() {
+  try {
+    loginAttempt += 1;
+
+    console.log(
+      `🔌 Discord login attempt ${loginAttempt}...`
+    );
+
+    await client.login(
+      process.env.TOKEN
+    );
+
+    loginAttempt = 0;
+
+    if (loginRetryTimer) {
+      clearTimeout(
+        loginRetryTimer
+      );
+
+      loginRetryTimer = null;
+    }
+  } catch (error) {
+    console.error(
+      "❌ Discord login/network error:",
+      error
+    );
+
+    const delayMs =
+      Math.min(
+        60 * 1000,
+        Math.max(
+          10 * 1000,
+          loginAttempt *
+            10 *
+            1000
+        )
+      );
+
+    console.log(
+      `🔁 Retrying Discord login in ${Math.ceil(delayMs / 1000)}s...`
+    );
+
+    loginRetryTimer =
+      setTimeout(
+        loginWithRetry,
+        delayMs
+      );
+  }
+}
+
+loginWithRetry();
