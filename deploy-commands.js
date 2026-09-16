@@ -70,10 +70,14 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("ticket-panel")
-    .setDescription("שולח פאנל טיקטים")
+    .setDescription("שולח את מרכז התמיכה לפתיחת טיקטים")
     .setDefaultMemberPermissions(
       PermissionFlagsBits.ManageGuild
     ),
+
+  new SlashCommandBuilder()
+    .setName("staff-panel")
+    .setDescription("שולח פאנל גיוס לצוות עם Apply For Staff"),
 
   new SlashCommandBuilder()
     .setName("setup-xp-shop")
