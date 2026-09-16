@@ -3,77 +3,92 @@ module.exports = {
   // BOT
   // =====================
 
+  // Application ID של הבוט
   clientId: "1549754322131222598",
+
+  // ID של השרת
   guildId: "1489571427567796326",
 
   // =====================
-  // ROLES
+  // STAFF
   // =====================
 
-  // רול שמקבלים אחרי Verify
-  memberRoleId: "1489580991734480976",
-
-  // רול צוות:
-  // מודרציה, !h, /rank, פאנל Verify וטיקטים
+  // רול Staff הראשי
+  // משמש ל-!rank, !h, מודרציה וגישה למערכות צוות
   staffRoleId: "1530262361146003456",
 
+  // =====================
+  // MODERATION
+  // =====================
+
   // רול Chat Mute
-  // תגדיר לו Deny ל-Send Messages / Send Messages in Threads
-  // אבל אל תחסום Connect / Speak ב-Voice
-  muteRoleId: "1547919633057714196",
+  muteRoleId: "1549774361324425246",
 
-  // =====================
-  // MOD LOGS
-  // =====================
-
-  // אפשר להשאיר "" אם לא רוצים לוגים
+  // חדר לוגים של מודרציה
+  // אפשר לשים "" אם לא רוצים לוגים
   modLogsChannelId: "1533958151525630043",
 
   // =====================
   // TICKETS
   // =====================
 
-  // קטגוריה שבה ייפתחו הטיקטים
-  ticketCategoryId: "1530574922814984363",
+  // הקטגוריה שבה כל הטיקטים נפתחים
+  ticketCategoryId: "PUT_TICKET_CATEGORY_ID_HERE",
 
-  // רול צוות לטיקטים רגילים
-  ticketStaffRoleId: "1530262361146003456",
+  // רול שמטפל בטיקטים רגילים
+  ticketStaffRoleId: "PUT_TICKET_STAFF_ROLE_ID_HERE",
 
-  // רול נפרד לטיקט "בחינה לצוות"
-  staffTestTicketRoleId: "1547920868964040784",
+  // רול שרואה ומטפל בטיקט "בחינה לצוות"
+  staffTestTicketRoleId: "PUT_STAFF_TEST_ROLE_ID_HERE",
 
-  // חדר Transcript / לוג סגירת טיקטים
-  ticketLogsChannelId: "1530571895186133092",
+  // חדר Transcript + לוגים של סגירת טיקטים
+  ticketLogsChannelId: "PUT_TICKET_LOGS_CHANNEL_ID_HERE",
 
   // =====================
-  // XP + CASINO
+  // WELCOME
+  // =====================
+
+  // חדר Welcome ספציפי.
+  // אם משאירים "", הבוט ינסה למצוא:
+  // welcome / welcomes / ברוכים-הבאים
+  // ואם לא ימצא, ישתמש ב-System Channel.
+  welcomeChannelId: "1489574096831516772",
+
+  // =====================
+  // XP
   // =====================
 
   xpPrefix: "!",
 
+  // XP מהודעות
   xpPerMessageMin: 5,
   xpPerMessageMax: 15,
 
-  xpMessageCooldownMs:
-    60 * 1000,
+  // Cooldown לקבלת XP מהודעות
+  xpMessageCooldownMs: 60 * 1000,
 
+  // Daily
   dailyXpMin: 250,
   dailyXpMax: 500,
 
+  // XP לכל Level
+  rankXpPerLevel: 500,
+
+  // =====================
+  // CASINO
+  // Virtual XP Only
+  // =====================
+
+  // מקסימום XP שאפשר לשים במשחק אחד
   maxCasinoBet: 1000,
 
-  casinoCooldownMs:
-    5 * 1000,
-
-  // XP לכל Level ב-/rank
-  rankXpPerLevel: 500,
+  // Cooldown בין משחקי Casino
+  casinoCooldownMs: 5 * 1000,
 
   // =====================
   // XP SHOP
   // =====================
 
-  // שנה רק את roleId לרולים שאתה רוצה למכור.
-  // אפשר גם לשנות שמות / מחירים / אימוג'ים.
   xpShop: [
     {
       key: "supporter",
