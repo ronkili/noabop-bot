@@ -1,0 +1,3 @@
+Optional: if your welcome channel is not named welcome / welcomes / ברוכים-הבאים and is not the server System Channel, add this inside module.exports in config.js:
+
+welcomeChannelId: "1489574096831516772",
