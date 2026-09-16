@@ -105,6 +105,19 @@ function isStaff(member) {
   );
 }
 
+function canSendSetupPanels(member, guild) {
+  return Boolean(
+    isStaff(member) ||
+    member?.id === guild?.ownerId ||
+    member?.permissions?.has(
+      PermissionFlagsBits.Administrator
+    ) ||
+    member?.permissions?.has(
+      PermissionFlagsBits.ManageGuild
+    )
+  );
+}
+
 function randomInt(min, max) {
   return Math.floor(
     Math.random() * (max - min + 1)
@@ -3128,9 +3141,15 @@ client.on(
       }
 
       if (interaction.commandName === "ticket-panel") {
-        if (!isStaff(interaction.member)) {
+        if (
+          !canSendSetupPanels(
+            interaction.member,
+            interaction.guild
+          )
+        ) {
           return interaction.reply({
-            content: "❌ אין לך גישה.",
+            content:
+              "❌ אין לך גישה. צריך Staff, Manage Server, Administrator או להיות Owner של השרת.",
             ephemeral: true
           });
         }
@@ -3147,9 +3166,15 @@ client.on(
       }
 
       if (interaction.commandName === "staff-panel") {
-        if (!isStaff(interaction.member)) {
+        if (
+          !canSendSetupPanels(
+            interaction.member,
+            interaction.guild
+          )
+        ) {
           return interaction.reply({
-            content: "❌ אין לך גישה.",
+            content:
+              "❌ אין לך גישה. צריך Staff, Manage Server, Administrator או להיות Owner של השרת.",
             ephemeral: true
           });
         }
