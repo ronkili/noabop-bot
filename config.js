@@ -33,16 +33,16 @@ module.exports = {
   // =====================
 
   // הקטגוריה שבה כל הטיקטים נפתחים
-  ticketCategoryId: "PUT_TICKET_CATEGORY_ID_HERE",
+  ticketCategoryId: "1548269968108429342",
 
   // רול שמטפל בטיקטים רגילים
-  ticketStaffRoleId: "PUT_TICKET_STAFF_ROLE_ID_HERE",
+  ticketStaffRoleId: "1530262361146003456",
 
   // רול שרואה ומטפל בטיקט "בחינה לצוות"
-  staffTestTicketRoleId: "PUT_STAFF_TEST_ROLE_ID_HERE",
+  staffTestTicketRoleId: "1547920868964040784",
 
   // חדר Transcript + לוגים של סגירת טיקטים
-  ticketLogsChannelId: "PUT_TICKET_LOGS_CHANNEL_ID_HERE",
+  ticketLogsChannelId: "1530571895186133092",
 
   // =====================
   // WELCOME
