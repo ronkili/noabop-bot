@@ -22,6 +22,8 @@ const {
   AttachmentBuilder
 } = require("discord.js");
 
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
+
 const config = require("./config");
 
 // =====================
@@ -38,6 +40,7 @@ const XP_FILE = path.join(DATA_DIR, "xp.json");
 const WARNS_FILE = path.join(DATA_DIR, "warns.json");
 const TIMERS_FILE = path.join(DATA_DIR, "mod-timers.json");
 const VOICE_FILE = path.join(DATA_DIR, "voice-time.json");
+const STAFF_STATS_FILE = path.join(DATA_DIR, "staff-stats.json");
 
 function loadJson(file, fallback) {
   try {
@@ -67,6 +70,7 @@ const xpData = loadJson(XP_FILE, { guilds: {} });
 const warnsData = loadJson(WARNS_FILE, { guilds: {} });
 const modTimers = loadJson(TIMERS_FILE, {});
 const voiceData = loadJson(VOICE_FILE, { guilds: {} });
+const staffStatsData = loadJson(STAFF_STATS_FILE, { guilds: {} });
 
 const messageXpCooldowns = new Map();
 const casinoCooldowns = new Map();
@@ -96,11 +100,8 @@ const client = new Client({
 
 function isStaff(member) {
   return Boolean(
-    member?.permissions?.has(PermissionFlagsBits.Administrator) ||
-    (
-      config.staffRoleId &&
-      member?.roles?.cache?.has(config.staffRoleId)
-    )
+    config.staffRoleId &&
+    member?.roles?.cache?.has(config.staffRoleId)
   );
 }
 
@@ -803,18 +804,108 @@ async function finishBlackjack(interaction, game) {
 }
 
 // =====================
-// WARNS
+// STAFF PERFORMANCE STATS
 // =====================
 
-function getGuildWarns(guildId) {
-  if (!warnsData.guilds[guildId]) {
-    warnsData.guilds[guildId] = {
-      nextId: 1,
+function getGuildStaffStats(guildId) {
+  if (!staffStatsData.guilds[guildId]) {
+    staffStatsData.guilds[guildId] = {
       users: {}
     };
   }
 
-  return warnsData.guilds[guildId];
+  if (!staffStatsData.guilds[guildId].users) {
+    staffStatsData.guilds[guildId].users = {};
+  }
+
+  return staffStatsData.guilds[guildId];
+}
+
+function getStaffStats(guildId, userId) {
+  const guildData = getGuildStaffStats(guildId);
+
+  if (!guildData.users[userId]) {
+    guildData.users[userId] = {
+      helpsTaken: 0,
+      ticketsTaken: 0,
+      voiceMs: 0
+    };
+  }
+
+  const stats = guildData.users[userId];
+  stats.helpsTaken = Math.max(0, Number(stats.helpsTaken || 0));
+  stats.ticketsTaken = Math.max(0, Number(stats.ticketsTaken || 0));
+  stats.voiceMs = Math.max(0, Number(stats.voiceMs || 0));
+
+  return stats;
+}
+
+function saveStaffStats() {
+  saveJson(STAFF_STATS_FILE, staffStatsData);
+}
+
+function addHelpTaken(guildId, userId) {
+  const stats = getStaffStats(guildId, userId);
+  stats.helpsTaken += 1;
+  saveStaffStats();
+}
+
+function addTicketTaken(guildId, userId) {
+  const stats = getStaffStats(guildId, userId);
+  stats.ticketsTaken += 1;
+  saveStaffStats();
+}
+
+function addStaffVoiceMs(guildId, userId, amountMs) {
+  const amount = Math.max(0, Number(amountMs || 0));
+  if (!amount) return;
+
+  const stats = getStaffStats(guildId, userId);
+  stats.voiceMs += amount;
+}
+
+function totalStaffVoiceMs(guildId, userId) {
+  const stats = getStaffStats(guildId, userId);
+  let total = Number(stats.voiceMs || 0);
+
+  const active = activeVoiceSessions.get(`${guildId}:${userId}`);
+  if (active) {
+    total += Math.max(0, Date.now() - Number(active.startedAt || Date.now()));
+  }
+
+  return total;
+}
+
+// =====================
+// WARNS
+// =====================
+
+const WARN_PUNISHMENTS = [
+  { warns: 3, timeoutMs: 30 * 60 * 1000, label: "30 דקות Timeout" },
+  { warns: 5, timeoutMs: 2 * 60 * 60 * 1000, label: "שעתיים Timeout" },
+  { warns: 7, timeoutMs: 24 * 60 * 60 * 1000, label: "יום Timeout" },
+  { warns: 10, timeoutMs: 7 * 24 * 60 * 60 * 1000, label: "7 ימים Timeout" }
+];
+
+function getGuildWarns(guildId) {
+  if (!warnsData.guilds[guildId]) {
+    warnsData.guilds[guildId] = {
+      idSequence: 0,
+      users: {}
+    };
+  }
+
+  const guildData = warnsData.guilds[guildId];
+
+  if (!guildData.users) {
+    guildData.users = {};
+  }
+
+  if (!Number.isInteger(Number(guildData.idSequence))) {
+    guildData.idSequence = 0;
+  }
+
+  return guildData;
 }
 
 function getUserWarns(guildId, userId) {
@@ -822,28 +913,52 @@ function getUserWarns(guildId, userId) {
 
   if (!guildData.users[userId]) {
     guildData.users[userId] = {
-      warns: []
+      warns: [],
+      appliedThresholds: []
     };
   }
 
-  return guildData.users[userId];
+  const data = guildData.users[userId];
+
+  if (!Array.isArray(data.warns)) {
+    data.warns = [];
+  }
+
+  if (!Array.isArray(data.appliedThresholds)) {
+    data.appliedThresholds = [];
+  }
+
+  return data;
 }
 
 function saveWarns() {
   saveJson(WARNS_FILE, warnsData);
 }
 
-function addWarn(guildId, userId, moderatorId, reason) {
+function generateWarnId(guildId) {
   const guildData = getGuildWarns(guildId);
+
+  guildData.idSequence =
+    (Number(guildData.idSequence || 0) + 1) % 4096;
+
+  // Numeric Snowflake-style moderation ID.
+  const epoch = 1704067200000n; // 2024-01-01 UTC
+  const timestamp = BigInt(Date.now()) - epoch;
+  const sequence = BigInt(guildData.idSequence);
+  const worker = 17n;
+
+  return (
+    (timestamp << 22n) |
+    (worker << 12n) |
+    sequence
+  ).toString();
+}
+
+function addWarn(guildId, userId, moderatorId, reason) {
   const userData = getUserWarns(guildId, userId);
 
-  const number = Number(guildData.nextId || 1);
-  const id = `W${String(number).padStart(4, "0")}`;
-
-  guildData.nextId = number + 1;
-
   const warning = {
-    id,
+    id: generateWarnId(guildId),
     userId,
     moderatorId,
     reason,
@@ -858,18 +973,59 @@ function addWarn(guildId, userId, moderatorId, reason) {
 
 function deleteWarn(guildId, userId, warnId) {
   const userData = getUserWarns(guildId, userId);
-  const normalized = String(warnId || "").toUpperCase();
+  const normalized = String(warnId || "").trim();
 
   const index = userData.warns.findIndex(
-    warn => String(warn.id).toUpperCase() === normalized
+    warn => String(warn.id) === normalized
   );
 
   if (index === -1) return null;
 
   const [removed] = userData.warns.splice(index, 1);
+
+  const count = userData.warns.length;
+  userData.appliedThresholds = userData.appliedThresholds.filter(
+    threshold => Number(threshold) <= count
+  );
+
+  saveWarns();
+  return removed;
+}
+
+async function applyAutomaticWarnPunishment(guild, member) {
+  const data = getUserWarns(guild.id, member.id);
+  const count = data.warns.length;
+
+  const punishment = WARN_PUNISHMENTS.find(
+    item => item.warns === count
+  );
+
+  if (!punishment) return null;
+
+  if (data.appliedThresholds.includes(punishment.warns)) {
+    return null;
+  }
+
+  if (!member.moderatable) {
+    return {
+      ok: false,
+      text:
+        `המשתמש הגיע ל־${count} Warns, אבל הבוט לא יכול לתת Timeout בגלל היררכיית רולים.`
+    };
+  }
+
+  await member.timeout(
+    punishment.timeoutMs,
+    `Noabop automatic punishment: ${count} warns`
+  );
+
+  data.appliedThresholds.push(punishment.warns);
   saveWarns();
 
-  return removed;
+  return {
+    ok: true,
+    text: `🔨 עונש אוטומטי: **${punishment.label}** בגלל **${count} Warns**.`
+  };
 }
 
 // =====================
@@ -1030,9 +1186,14 @@ function endVoiceSession(guildId, userId, endedAt = Date.now()) {
     guildData.weekStart
   );
 
+  const elapsed = Math.max(0, endedAt - startedAt);
+
   profile.milliseconds =
     Number(profile.milliseconds || 0) +
-    Math.max(0, endedAt - startedAt);
+    elapsed;
+
+  addStaffVoiceMs(guildId, userId, elapsed);
+  saveStaffStats();
 
   activeVoiceSessions.delete(key);
   saveJson(VOICE_FILE, voiceData);
@@ -1057,6 +1218,12 @@ function flushVoiceSessions() {
       profile.milliseconds =
         Number(profile.milliseconds || 0) + elapsed;
 
+      addStaffVoiceMs(
+        session.guildId,
+        session.userId,
+        elapsed
+      );
+
       session.startedAt = now;
       activeVoiceSessions.set(key, session);
       changed = true;
@@ -1065,6 +1232,7 @@ function flushVoiceSessions() {
 
   if (changed) {
     saveJson(VOICE_FILE, voiceData);
+    saveStaffStats();
   }
 }
 
@@ -1152,65 +1320,39 @@ function rankLevel(xp) {
 }
 
 function buildRankEmbed(guild, member) {
-  const profile = getXpProfile(guild.id, member.id);
-  const xp = Number(profile.xp || 0);
-  const messages = Number(profile.messages || 0);
-
-  const rank = positionByField(
-    guild.id,
-    member.id,
-    "xp"
-  );
-
-  const messageRank = positionByField(
-    guild.id,
-    member.id,
-    "messages"
-  );
-
-  const level = rankLevel(xp);
-
-  const warnCount = getUserWarns(
-    guild.id,
-    member.id
-  ).warns.length;
-
+  const stats = getStaffStats(guild.id, member.id);
   const voice = formatVoiceTime(
-    weeklyVoiceMs(guild.id, member.id)
+    totalStaffVoiceMs(guild.id, member.id)
   );
-
-  const roleCount = member.roles.cache.filter(
-    role => role.id !== guild.id
-  ).size;
 
   return new EmbedBuilder()
-    .setColor("Aqua")
-    .setTitle("All stats in Noabop")
+    .setColor("Blurple")
+    .setTitle("📊 Noabop Staff Rank")
     .setThumbnail(
       member.user.displayAvatarURL({ size: 256 })
     )
     .setDescription(
-      [
-        `**#${rank} ${member.displayName}** 💎 **${level.level}**`,
-        "",
-        `Total XP: **${xp.toLocaleString("en-US")}** (#${rank})`,
-        `Next Level: **${level.percent}%**`,
-        `XP needed: **${level.needed.toLocaleString("en-US")}**`
-      ].join("\n")
+      `סטטיסטיקות הצוות של ${member} ב־**${guild.name}**`
     )
-    .addFields({
-      name: "Stats",
-      value:
-        [
-          `💬 **${messages.toLocaleString("en-US")}** (#${messageRank})`,
-          `🎙️ **${voice}** Voice This Week`,
-          `⚠️ **${warnCount}** Warns`,
-          `🎭 **${roleCount}** Roles`
-        ].join("\n"),
-      inline: false
-    })
+    .addFields(
+      {
+        name: "🆘 Helps Taken",
+        value: `**${stats.helpsTaken.toLocaleString("en-US")}**`,
+        inline: true
+      },
+      {
+        name: "🎫 Tickets Taken",
+        value: `**${stats.ticketsTaken.toLocaleString("en-US")}**`,
+        inline: true
+      },
+      {
+        name: "🎙️ Voice Time",
+        value: `**${voice}**`,
+        inline: true
+      }
+    )
     .setFooter({
-      text: `Noabop • Rank • ${member.user.username}`
+      text: `Noabop • Staff Rank • ${member.user.username}`
     })
     .setTimestamp();
 }
@@ -1263,82 +1405,91 @@ function helpRequestEmbed(
 }
 
 // =====================
-// VERIFY
-// =====================
-
-function verifyPanel() {
-  return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("Blue")
-        .setTitle("Verify ✅")
-        .setDescription(
-          "לחץ על הכפתור, תקבל מספר, ואז תלחץ על המספר הנכון."
-        )
-    ],
-    components: [
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("start_verify")
-          .setLabel("Verify")
-          .setStyle(ButtonStyle.Success)
-      )
-    ]
-  };
-}
-
-// =====================
 // STAFF EXAM
 // =====================
 
-function buildStaffExamEmbed() {
-  return new EmbedBuilder()
-    .setColor("Blue")
-    .setTitle("📝 בחינה לצוות")
+function buildStaffExamEmbeds() {
+  const intro = new EmbedBuilder()
+    .setColor("Blurple")
+    .setTitle("📜 טופס מועמדות לצוות השרת")
     .setDescription(
       [
-        "ענה על כל השאלות בצורה רצינית ומפורטת.",
+        "ברוך הבא לבחינה לצוות של **Noabop**.",
         "",
-        "❓ **שאלה 1:**",
-        "מה תעשה אם משתמש מקלל מישהו בשרת?",
+        "📝 יש לענות על **כל השאלות** בצורה מסודרת, רצינית ומפורטת.",
+        "💡 ככל שתשקיע יותר בתשובות — כך נוכל להכיר אותך טוב יותר.",
         "",
-        "❓ **שאלה 2:**",
-        "איך תגיב במקרה של ריב בין משתמשים?",
-        "",
-        "❓ **שאלה 3:**",
-        "מה חשוב יותר בצוות: פעילות או אחריות?",
-        "",
-        "❓ **שאלה 4:**",
-        "מה תעשה אם חבר צוות עובר על חוקים?",
-        "",
-        "❓ **שאלה 5:**",
-        "איך תעזור למשתמש חדש?",
-        "",
-        "❓ **שאלה 6:**",
-        "מה תעשה נגד ספאם?",
-        "",
-        "❓ **שאלה 7:**",
-        "איך תטפל בקישורים אסורים?",
-        "",
-        "❓ **שאלה 8:**",
-        "למה אתה רוצה להיות צוות?",
-        "",
-        "❓ **שאלה 9:**",
-        "איזה תפקיד מתאים לך?",
-        "",
-        "❓ **שאלה 10:**",
-        "מה הופך איש צוות לטוב?",
-        "",
-        "❓ **ניסיון קודם:**",
-        "האם יש לך ניסיון בשרתים אחרים?",
-        "ואם כן — איזה תפקיד וכמה ממברים היו בשרת?"
-      ].join("\n")
+        "⚠️ **זלזול, טרול או תשובות לא רציניות עלולים לגרור ענישה.**"
+      ].join("\\n")
     )
     .setFooter({
-      text:
-        "Noabop Staff Exam"
+      text: "Noabop • Staff Application"
     })
     .setTimestamp();
+
+  const partOne = new EmbedBuilder()
+    .setColor("Blue")
+    .setTitle("🧠 חלק א׳ — היכרות וניסיון")
+    .setDescription(
+      [
+        "**1. 🪪 שם מלא / כינוי בדיסקורד**",
+        "מה השם שלך ומה הכינוי שלך בדיסקורד?",
+        "",
+        "**2. 🎂 גיל**",
+        "בן/בת כמה אתה/את?",
+        "",
+        "**3. ⏳ ותק בשרת**",
+        "כמה זמן אתה נמצא בשרת שלנו?",
+        "",
+        "**4. 🛡️ ניסיון קודם**",
+        "האם יש לך ניסיון קודם בצוות ניהול / מודרטור? ספר קצת. אם עזבת — מדוע? צרף הוכחה במידה ויש.",
+        "",
+        "**5. ⭐ מהו צוות טוב?**",
+        "איך אתה מגדיר צוות טוב? אילו תכונות לדעתך חייבות להיות לחבר צוות?",
+        "",
+        "**6. 🚨 טיפול בסיטואציה בעייתית**",
+        "מה היית עושה אם יש סיטואציה לא נעימה בצ׳אט או בווייס — קללות, מעבר על החוקים או ריב בין כמה חברי שרת? תן דוגמה.",
+        "",
+        "**7. 🧩 קונפליקט בתוך הצוות**",
+        "איך היית מגיב אם חבר צוות שמתחתיך תוקף אותך? ואיך היית מגיב אם הוא היה מעליך?"
+      ].join("\\n")
+    );
+
+  const partTwo = new EmbedBuilder()
+    .setColor("DarkBlue")
+    .setTitle("🚀 חלק ב׳ — פעילות, תרומה ומוטיבציה")
+    .setDescription(
+      [
+        "**8. 🕒 זמינות**",
+        "כמה זמן בערך אתה חושב שתוכל לתת מעצמך למען השרת בכל יום / במהלך שבוע?",
+        "",
+        "**9. 📈 החזרת פעילות לשרת**",
+        "אם השרת מתחיל להראות חוסר פעילות — האם לדעתך תוכל לשנות את המצב? איך?",
+        "",
+        "**10. 🧰 תחומי עזרה**",
+        "באילו תחומים אתה רוצה לעזור בשרת? למשל: ניהול צ׳אט, ניהול ווייס, הפקת אירועים או תמיכה טכנית.",
+        "",
+        "**11. 🏆 תרומה והתקדמות**",
+        "איך אתה חושב שתוכל לתרום לשרת, וכמה רחוק אתה חושב שתוכל להגיע בצוות?",
+        "",
+        "**12. ❤️ למה צוות?**",
+        "מאיפה מגיע הרצון שלך להצטרף לצוות?",
+        "",
+        "**13. 🎯 למה דווקא אתה?**",
+        "למה דווקא אתה מתאים לצוות שלנו?",
+        "",
+        "**💡 בונוס — רעיון לשיפור השרת**",
+        "יש לך רעיון לשיפור השרת? נשמח לשמוע.",
+        "",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "🍀 **בהצלחה!** השקעה, סדר וכנות עושים הבדל."
+      ].join("\\n")
+    )
+    .setFooter({
+      text: "Noabop Staff Team • Good Luck"
+    });
+
+  return [intro, partOne, partTwo];
 }
 
 
@@ -1618,9 +1769,7 @@ async function openTicket(interaction, type) {
 
   if (type === "staff_test") {
     await channel.send({
-      embeds: [
-        buildStaffExamEmbed()
-      ]
+      embeds: buildStaffExamEmbeds()
     });
   }
 
@@ -1630,6 +1779,141 @@ async function openTicket(interaction, type) {
     ephemeral: true
   });
 }
+
+// =====================
+// WELCOME
+// =====================
+
+function roundRectPath(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function getWelcomeChannel(guild) {
+  if (config.welcomeChannelId) {
+    const configured = guild.channels.cache.get(config.welcomeChannelId);
+    if (configured?.isTextBased()) {
+      return configured;
+    }
+  }
+
+  const preferredNames = new Set([
+    "welcome",
+    "welcomes",
+    "ברוכים-הבאים",
+    "ברוכים-הבאים-לשרת",
+    "ברוכים הבאים"
+  ]);
+
+  const named = guild.channels.cache.find(channel =>
+    channel?.isTextBased?.() &&
+    preferredNames.has(String(channel.name || "").toLowerCase())
+  );
+
+  return named || guild.systemChannel || null;
+}
+
+client.on(Events.GuildMemberAdd, async member => {
+  try {
+    if (member.user.bot) return;
+
+    const welcomeChannel = getWelcomeChannel(member.guild);
+    if (!welcomeChannel?.isTextBased()) return;
+
+    const joinedDate = new Date().toLocaleDateString("en-GB");
+    const canvas = createCanvas(1000, 500);
+    const ctx = canvas.getContext("2d");
+
+    const backgroundUrl =
+      member.guild.bannerURL({ extension: "png", size: 1024 }) ||
+      member.guild.iconURL({ extension: "png", size: 1024 });
+
+    if (backgroundUrl) {
+      const background = await loadImage(backgroundUrl);
+      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.58)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 7;
+    roundRectPath(ctx, 30, 35, 940, 430, 35);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#7c3aed";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(510, 250, 400, 165, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const avatar = await loadImage(
+      member.user.displayAvatarURL({ extension: "png", size: 256 })
+    );
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(235, 250, 82, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatar, 153, 168, 164, 164);
+    ctx.restore();
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(235, 250, 85, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+
+    ctx.font = "36px Arial";
+    ctx.fillText("WELCOME", 570, 185);
+
+    ctx.font = "bold 62px Arial";
+    ctx.fillText(
+      member.user.username.toUpperCase().slice(0, 18),
+      570,
+      265
+    );
+
+    ctx.font = "28px Arial";
+    ctx.fillText(member.guild.name.slice(0, 30), 570, 320);
+
+    ctx.font = "24px Arial";
+    ctx.fillText(`Member #${member.guild.memberCount}`, 570, 360);
+
+    ctx.font = "20px Arial";
+    ctx.fillText(`Date: ${joinedDate}`, 570, 395);
+
+    const attachment = new AttachmentBuilder(
+      canvas.toBuffer("image/png"),
+      { name: "welcome.png" }
+    );
+
+    await welcomeChannel.send({
+      content:
+        `👋 Welcome ${member} to **${member.guild.name}**!\n\n` +
+        `📅 Date: **${joinedDate}**\n` +
+        `👤 You are member **#${member.guild.memberCount}**`,
+      files: [attachment]
+    });
+  } catch (error) {
+    console.error("❌ Welcome error:", error);
+  }
+});
 
 // =====================
 // READY
@@ -1788,6 +2072,44 @@ client.on(
             config.staffRoleId
               ? { roles: [config.staffRoleId] }
               : undefined
+        });
+      }
+
+      // ---------- STAFF RANK ----------
+
+      if (command === "rank") {
+        if (!isStaff(message.member)) {
+          return message.reply(
+            "❌ רק Staff יכול להשתמש ב־`!rank`."
+          );
+        }
+
+        let member = message.mentions.members.first();
+
+        if (!member && args[0] && /^\d{16,20}$/.test(args[0])) {
+          member = await fetchMember(
+            message.guild,
+            args[0]
+          );
+        }
+
+        if (!member) {
+          member = message.member;
+        }
+
+        if (!isStaff(member)) {
+          return message.reply(
+            "❌ אפשר להציג `!rank` רק עבור חבר צוות."
+          );
+        }
+
+        return message.channel.send({
+          embeds: [
+            buildRankEmbed(
+              message.guild,
+              member
+            )
+          ]
         });
       }
 
@@ -2319,119 +2641,6 @@ client.on(
       // ---------- BUTTONS ----------
 
       if (interaction.isButton()) {
-        // VERIFY
-
-        if (interaction.customId === "start_verify") {
-          const correct = randomInt(1000, 9999);
-          const values = new Set([correct]);
-
-          while (values.size < 4) {
-            values.add(randomInt(1000, 9999));
-          }
-
-          const numbers = [...values].sort(
-            () => Math.random() - 0.5
-          );
-
-          const row = new ActionRowBuilder().addComponents(
-            numbers.map(
-              number =>
-                new ButtonBuilder()
-                  .setCustomId(
-                    `verify:${interaction.user.id}:${correct}:${number}`
-                  )
-                  .setLabel(String(number))
-                  .setStyle(ButtonStyle.Secondary)
-            )
-          );
-
-          return interaction.reply({
-            content:
-              `🔢 המספר שלך הוא **${correct}**. לחץ על המספר הנכון:`,
-            components: [row],
-            ephemeral: true
-          });
-        }
-
-        if (interaction.customId.startsWith("verify:")) {
-          const [
-            ,
-            ownerId,
-            correct,
-            selected
-          ] = interaction.customId.split(":");
-
-          if (interaction.user.id !== ownerId) {
-            return interaction.reply({
-              content:
-                "❌ האימות הזה לא שייך לך.",
-              ephemeral: true
-            });
-          }
-
-          if (correct !== selected) {
-            return interaction.update({
-              content:
-                "לא נכון 💔 תלחץ שוב על Verify.",
-              components: []
-            });
-          }
-
-          const role = await interaction.guild.roles
-            .fetch(config.memberRoleId)
-            .catch(() => null);
-
-          const member = await fetchMember(
-            interaction.guild,
-            interaction.user.id
-          );
-
-          const botMember = await interaction.guild.members
-            .fetchMe();
-
-          if (!role || !member) {
-            return interaction.update({
-              content:
-                "❌ לא מצאתי את רול ה־Member.",
-              components: []
-            });
-          }
-
-          if (
-            !botMember.permissions.has(
-              PermissionFlagsBits.ManageRoles
-            )
-          ) {
-            return interaction.update({
-              content:
-                "❌ לבוט אין `Manage Roles`.",
-              components: []
-            });
-          }
-
-          if (
-            role.position >=
-            botMember.roles.highest.position
-          ) {
-            return interaction.update({
-              content:
-                "❌ רול הבוט נמוך מדי. תעלה אותו מעל רול ה־Member.",
-              components: []
-            });
-          }
-
-          await member.roles.add(
-            role,
-            "Noabop Verify completed"
-          );
-
-          return interaction.update({
-            content:
-              "אומתת בהצלחה ✅ קיבלת את הרול!",
-            components: []
-          });
-        }
-
         // HELP
 
         if (
@@ -2471,6 +2680,11 @@ client.on(
               .setLabel("בטיפול")
               .setStyle(ButtonStyle.Primary)
               .setDisabled(true)
+          );
+
+          addHelpTaken(
+            interaction.guild.id,
+            interaction.user.id
           );
 
           return interaction.update({
@@ -2639,6 +2853,11 @@ client.on(
             data.claimedBy = interaction.user.id;
             await setTicketTopic(interaction.channel, data);
 
+            addTicketTaken(
+              interaction.guild.id,
+              interaction.user.id
+            );
+
             await interaction.message.edit({
               components: ticketButtons(true)
             });
@@ -2760,27 +2979,16 @@ client.on(
       if (!interaction.isChatInputCommand()) return;
 
       if (interaction.commandName === "ping") {
-        return interaction.reply({
-          content:
-            `🏓 Pong! ${client.ws.ping}ms`,
-          ephemeral: true
-        });
-      }
-
-      if (interaction.commandName === "verify-panel") {
-        if (!isStaff(interaction.member)) {
-          return interaction.reply({
-            content: "❌ אין לך גישה.",
-            ephemeral: true
-          });
-        }
-
-        await interaction.channel.send(
-          verifyPanel()
+        const responseMs = Math.max(
+          0,
+          Date.now() - interaction.createdTimestamp
         );
 
         return interaction.reply({
-          content: "✅ פאנל Verify נשלח.",
+          content:
+            `🏓 **Pong!**\n` +
+            `🤖 Bot: **${responseMs}ms**\n` +
+            `🌐 Discord WS: **${client.ws.ping}ms**`,
           ephemeral: true
         });
       }
@@ -2846,44 +3054,6 @@ client.on(
         });
       }
 
-      // Rank: Staff-only trigger, public response.
-
-      if (interaction.commandName === "rank") {
-        if (!isStaff(interaction.member)) {
-          return interaction.reply({
-            content:
-              "❌ רק Staff יכול להשתמש ב־/rank.",
-            ephemeral: true
-          });
-        }
-
-        const user =
-          interaction.options.getUser("user") ||
-          interaction.user;
-
-        const member = await fetchMember(
-          interaction.guild,
-          user.id
-        );
-
-        if (!member) {
-          return interaction.reply({
-            content:
-              "❌ המשתמש לא נמצא בשרת.",
-            ephemeral: true
-          });
-        }
-
-        return interaction.reply({
-          embeds: [
-            buildRankEmbed(
-              interaction.guild,
-              member
-            )
-          ]
-        });
-      }
-
       const moderationCommands = [
         "warn",
         "warnings",
@@ -2931,6 +3101,22 @@ client.on(
           });
         }
 
+        if (user.id === interaction.user.id) {
+          return interaction.reply({
+            content:
+              "❌ אי אפשר לתת Warn לעצמך.",
+            ephemeral: true
+          });
+        }
+
+        if (user.id === interaction.guild.ownerId) {
+          return interaction.reply({
+            content:
+              "❌ אי אפשר לתת Warn לבעל השרת.",
+            ephemeral: true
+          });
+        }
+
         const member = await fetchMember(
           interaction.guild,
           user.id
@@ -2956,11 +3142,28 @@ client.on(
           user.id
         ).warns.length;
 
+        const autoPunishment =
+          await applyAutomaticWarnPunishment(
+            interaction.guild,
+            member
+          ).catch(error => {
+            console.error(
+              "❌ Automatic warn punishment error:",
+              error
+            );
+
+            return {
+              ok: false,
+              text: "ה־Warn נשמר, אבל העונש האוטומטי נכשל."
+            };
+          });
+
         await user.send(
           `⚠️ קיבלת Warn ב־**${interaction.guild.name}**.\n` +
           `ID: **${warning.id}**\n` +
           `סיבה: ${reason}\n` +
-          `Warns פעילים: **${count}**`
+          `Warns פעילים: **${count}**` +
+          `${autoPunishment ? `\n${autoPunishment.text}` : ""}`
         ).catch(() => {});
 
         await sendModLog(
@@ -2984,6 +3187,17 @@ client.on(
               {
                 name: "סיבה",
                 value: reason
+              },
+              {
+                name: "Warns פעילים",
+                value: String(count)
+              },
+              {
+                name: "עונש אוטומטי",
+                value:
+                  autoPunishment
+                    ? autoPunishment.text
+                    : "אין כרגע"
               }
             ]
           )
@@ -2991,7 +3205,8 @@ client.on(
 
         return interaction.reply({
           content:
-            `✅ ${user} קיבל Warn **${warning.id}**.`,
+            `✅ ${user} קיבל Warn **${warning.id}**.` +
+            `${autoPunishment ? `\n${autoPunishment.text}` : ""}`,
           ephemeral: true
         });
       }
@@ -3083,6 +3298,7 @@ client.on(
         const count = data.warns.length;
 
         data.warns = [];
+        data.appliedThresholds = [];
         saveWarns();
 
         return interaction.reply({
