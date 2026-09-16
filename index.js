@@ -1498,57 +1498,141 @@ function buildStaffExamEmbeds() {
 // =====================
 
 const ticketTypes = {
-  general: {
-    emoji: "❓",
-    name: "שאלה כללית"
+  report_user: {
+    emoji: "🚨",
+    name: "Report User",
+    hebrewName: "דיווח על משתמש",
+    description: "דיווח על משתמש שעובר על חוקי השרת"
   },
-  complaint: {
-    emoji: "⚠️",
-    name: "תלונה על ממבר/חבר צוות"
+  management_support: {
+    emoji: "📋",
+    name: "Management Support",
+    hebrewName: "פנייה להנהלה",
+    description: "פנייה ישירה לצוות ההנהלה"
   },
-  bug: {
-    emoji: "🛠️",
-    name: "דיווח על באג בשרת"
-  },
-  partnership: {
-    emoji: "🤝",
-    name: "שיתוף פעולה"
+  giveaway_winner: {
+    emoji: "🎁",
+    name: "Giveaway Winner",
+    hebrewName: "זכייה בהגרלה",
+    description: "פנייה בנוגע לזכייה בהגרלה"
   },
   video_participation: {
     emoji: "🎬",
-    name: "השתתפות בסרטון"
+    name: "Video Participation",
+    hebrewName: "השתתפות בסרטון",
+    description: "בקשה להשתתף בסרטון"
+  },
+  other: {
+    emoji: "❓",
+    name: "Other",
+    hebrewName: "אחר",
+    description: "נושא אחר שלא מופיע ברשימה"
   },
   staff_test: {
     emoji: "📝",
-    name: "בחינה לצוות"
+    name: "Staff Application",
+    hebrewName: "בחינה לצוות",
+    description: "מועמדות לצוות השרת"
   }
 };
 
 function ticketPanel() {
+  const regularTypes = [
+    "report_user",
+    "management_support",
+    "giveaway_winner",
+    "video_participation",
+    "other"
+  ];
+
   const select = new StringSelectMenuBuilder()
     .setCustomId("ticket_type_select")
-    .setPlaceholder("בחר את נושא הפנייה...")
+    .setPlaceholder("בחר נושא לפתיחת טיקט")
     .addOptions(
-      Object.entries(ticketTypes).map(
-        ([value, data]) =>
-          new StringSelectMenuOptionBuilder()
-            .setLabel(data.name)
-            .setEmoji(data.emoji)
-            .setValue(value)
-      )
+      regularTypes.map(value => {
+        const data = ticketTypes[value];
+
+        return new StringSelectMenuOptionBuilder()
+          .setLabel(data.name)
+          .setDescription(data.hebrewName)
+          .setEmoji(data.emoji)
+          .setValue(value);
+      })
     );
 
+  const embed = new EmbedBuilder()
+    .setColor("Blurple")
+    .setTitle("🎟️ מרכז תמיכה - פתיחת טיקט")
+    .setDescription(
+      [
+        "לפתיחת פנייה לצוות, בחר את הנושא המתאים מהתפריט למטה.",
+        "",
+        "🔶 **Report User** — דיווח על משתמש",
+        "🔶 **Management Support** — פנייה להנהלה",
+        "🔶 **Giveaway Winner** — זכייה בהגרלה",
+        "🔶 **Video Participation** — השתתפות בסרטון",
+        "🔶 **Other** — אחר",
+        "",
+        "⚠️ פתיחת טיקט ללא סיבה מוצדקת עלולה להוביל לסגירתו."
+      ].join("\\n")
+    )
+    .setFooter({
+      text: "Noabop • Support Center"
+    })
+    .setTimestamp();
+
+  if (client.user) {
+    embed.setImage(
+      client.user.displayAvatarURL({
+        size: 1024
+      })
+    );
+  }
+
   return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("Blue")
-        .setTitle("🎟️ מערכת פניות (טיקטים)")
-        .setDescription(
-          "בחר את סוג הפנייה מהתפריט למטה."
-        )
-    ],
+    embeds: [embed],
     components: [
-      new ActionRowBuilder().addComponents(select)
+      new ActionRowBuilder()
+        .addComponents(select)
+    ]
+  };
+}
+
+function staffApplicationPanel() {
+  const button = new ButtonBuilder()
+    .setCustomId("staff_apply")
+    .setLabel("Apply For Staff")
+    .setEmoji("📝")
+    .setStyle(ButtonStyle.Primary);
+
+  return {
+    content: [
+      "📢 **__דרושים אנשי צוות חדשים לשרת!__** 📢",
+      "",
+      "**קהילה יקרה,** אנחנו שמחים להודיע כי ההרשמה לצוות השרת פתוחה! 🚀",
+      "",
+      "אם אתם אחראיים, בעלי רצון לעזור, יודעים לעבוד בצוות ורוצים לקחת חלק בניהול ובפיתוח של השרת — זה המקום שלכם.",
+      "",
+      "📌 **דרישות סף:**",
+      "",
+      "• גיל מינימלי: **13+**",
+      "• פעילות וזמינות בשרת ובצ׳אטים.",
+      "• ידע בסיסי בחוקי השרת ויחסי אנוש טובים.",
+      "• ללא עבר משמעתי כבד בתקופה האחרונה.",
+      "",
+      "📝 **איך זה עובד?**",
+      "",
+      "1. לחצו על הכפתור **Apply For Staff** למטה.",
+      "2. ייפתח עבורכם טיקט בחינה פרטי.",
+      "3. ענו על כל השאלות בצורה מסודרת ומפורטת.",
+      "4. צוות ההנהלה יעבור על הבחינה ויחזור אליכם.",
+      "",
+      "⏰ **שימו לב:** ההרשמה יכולה להיסגר בכל עת, לכן מומלץ להגיש מועמדות בהקדם.",
+      "",
+      "🤍 **בהצלחה לכל המשתתפים!**"
+    ].join("\\n"),
+    components: [
+      new ActionRowBuilder().addComponents(button)
     ]
   };
 }
@@ -1754,12 +1838,50 @@ async function openTicket(interaction, type) {
     permissionOverwrites: overwrites
   });
 
+  const openedEmbed = new EmbedBuilder()
+    .setColor(
+      type === "staff_test"
+        ? "Purple"
+        : "Blurple"
+    )
+    .setTitle(
+      `${typeData.emoji} ${typeData.hebrewName || typeData.name}`
+    )
+    .setDescription(
+      type === "staff_test"
+        ? [
+            `שלום ${interaction.user},`,
+            "",
+            "נפתח עבורך טיקט מועמדות לצוות.",
+            "ענה על השאלות שיופיעו מיד בצורה רצינית ומסודרת.",
+            "",
+            "🛡️ צוות ההנהלה יעבור על המועמדות שלך בהקדם."
+          ].join("\n")
+        : [
+            `שלום ${interaction.user}, הפנייה שלך נפתחה בהצלחה.`,
+            "",
+            `📌 **נושא:** ${typeData.name}`,
+            `📝 **קטגוריה:** ${typeData.hebrewName || typeData.name}`,
+            "",
+            "צוות השרת יענה כאן בהקדם האפשרי."
+          ].join("\n")
+    )
+    .setThumbnail(
+      interaction.user.displayAvatarURL({
+        size: 256
+      })
+    )
+    .setFooter({
+      text: "Noabop • Ticket System"
+    })
+    .setTimestamp();
+
   await channel.send({
     content:
-      `${typeData.emoji} **טיקט חדש נפתח**\n\n` +
-      `👤 משתמש: <@${interaction.user.id}>\n` +
-      `📌 סוג טיקט: **${typeData.name}**\n\n` +
-      `${staffRoleId ? `<@&${staffRoleId}>` : ""}`,
+      staffRoleId
+        ? `<@&${staffRoleId}>`
+        : undefined,
+    embeds: [openedEmbed],
     components: ticketButtons(false),
     allowedMentions: {
       users: [interaction.user.id],
@@ -2543,6 +2665,18 @@ client.on(
   Events.InteractionCreate,
   async interaction => {
     try {
+      // ---------- STAFF APPLICATION BUTTON ----------
+
+      if (
+        interaction.isButton() &&
+        interaction.customId === "staff_apply"
+      ) {
+        return openTicket(
+          interaction,
+          "staff_test"
+        );
+      }
+
       // ---------- TICKET TYPE ----------
 
       if (
@@ -3007,7 +3141,34 @@ client.on(
 
         return interaction.reply({
           content:
-            "✅ פאנל הטיקטים נשלח.",
+            "✅ פאנל מרכז התמיכה נשלח.",
+          ephemeral: true
+        });
+      }
+
+      if (interaction.commandName === "staff-panel") {
+        if (!isStaff(interaction.member)) {
+          return interaction.reply({
+            content: "❌ אין לך גישה.",
+            ephemeral: true
+          });
+        }
+
+        if (!interaction.channel?.isTextBased()) {
+          return interaction.reply({
+            content:
+              "❌ אפשר לשלוח את פאנל הגיוס רק בחדר טקסט.",
+            ephemeral: true
+          });
+        }
+
+        await interaction.channel.send(
+          staffApplicationPanel()
+        );
+
+        return interaction.reply({
+          content:
+            "✅ פאנל הגיוס לצוות נשלח.",
           ephemeral: true
         });
       }
