@@ -1573,31 +1573,49 @@ function ticketPanel() {
       })
     );
 
+  const description = [
+    "🎟️ **צריכים עזרה? הגעתם למקום הנכון.**",
+    "",
+    "כדי לפתוח פנייה לצוות, בחרו מהתפריט למטה את הנושא שהכי מתאים לפנייה שלכם.",
+    "לאחר הבחירה ייפתח עבורכם טיקט פרטי שבו תוכלו להסביר את המקרה בצורה מלאה.",
+    "",
+    "📌 **נושאים זמינים**",
+    "",
+    "🚨 **Report User**",
+    "דיווח על משתמש שעובר על חוקי השרת.",
+    "",
+    "📋 **Management Support**",
+    "פנייה ישירה להנהלה בנושא שדורש טיפול או עזרה.",
+    "",
+    "🎁 **Giveaway Winner**",
+    "פנייה בנוגע לזכייה בהגרלה או קבלת הפרס.",
+    "",
+    "🎬 **Video Participation**",
+    "בקשה להשתתף בסרטון או פעילות תוכן של השרת.",
+    "",
+    "❓ **Other**",
+    "לכל נושא אחר שלא מתאים לאחת האפשרויות למעלה.",
+    "",
+    "⚠️ **שימו לב**",
+    "יש לפתוח טיקט רק כשבאמת צריך עזרה ולפרט את הנושא בצורה מסודרת.",
+    "פתיחת טיקטים ללא סיבה או ספאם עלולה להוביל לסגירת הטיקט ולטיפול מצד הצוות.",
+    "",
+    "💙 צוות Noabop יחזור אליכם בהקדם האפשרי."
+  ].join("\n");
+
   const embed = new EmbedBuilder()
     .setColor("Blurple")
-    .setTitle("🎟️ מרכז תמיכה - פתיחת טיקט")
-    .setDescription(
-      [
-        "לפתיחת פנייה לצוות, בחר את הנושא המתאים מהתפריט למטה.",
-        "",
-        "🔶 **Report User** — דיווח על משתמש",
-        "🔶 **Management Support** — פנייה להנהלה",
-        "🔶 **Giveaway Winner** — זכייה בהגרלה",
-        "🔶 **Video Participation** — השתתפות בסרטון",
-        "🔶 **Other** — אחר",
-        "",
-        "⚠️ פתיחת טיקט ללא סיבה מוצדקת עלולה להוביל לסגירתו."
-      ].join("\\n")
-    )
+    .setTitle("🎟️ מרכז תמיכה — פתיחת טיקט")
+    .setDescription(description)
     .setFooter({
       text: "Noabop • Support Center"
     })
     .setTimestamp();
 
   if (client.user) {
-    embed.setImage(
+    embed.setThumbnail(
       client.user.displayAvatarURL({
-        size: 1024
+        size: 256
       })
     );
   }
@@ -1610,7 +1628,6 @@ function ticketPanel() {
     ]
   };
 }
-
 function staffApplicationPanel() {
   const button =
     new ButtonBuilder()
