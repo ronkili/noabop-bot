@@ -70,10 +70,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("ticket-panel")
-    .setDescription("שולח את מרכז התמיכה לפתיחת טיקטים")
-    .setDefaultMemberPermissions(
-      PermissionFlagsBits.ManageGuild
-    ),
+    .setDescription("שולח את מרכז התמיכה לפתיחת טיקטים"),
 
   new SlashCommandBuilder()
     .setName("staff-panel")
