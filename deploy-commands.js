@@ -67,12 +67,6 @@ const commands = [
     .setName("ping")
     .setDescription("בודק אם Noabop Bot עובד"),
 
-  new SlashCommandBuilder()
-    .setName("verify-panel")
-    .setDescription("שולח פאנל Verify")
-    .setDefaultMemberPermissions(
-      PermissionFlagsBits.ManageGuild
-    ),
 
   new SlashCommandBuilder()
     .setName("ticket-panel")
@@ -85,15 +79,6 @@ const commands = [
     .setName("setup-xp-shop")
     .setDescription("שולח את פאנל ה-XP Shop של Noabop"),
 
-  new SlashCommandBuilder()
-    .setName("rank")
-    .setDescription("מציג Rank וסטטיסטיקות")
-    .addUserOption(option =>
-      option
-        .setName("user")
-        .setDescription("המשתמש להצגת ה-Rank")
-        .setRequired(false)
-    ),
 
   userReasonCommand(
     "warn",
@@ -122,7 +107,7 @@ const commands = [
     .addStringOption(option =>
       option
         .setName("id")
-        .setDescription("Warn ID, לדוגמה W0001")
+        .setDescription("Warn ID, לדוגמה 357923456789012345")
         .setRequired(true)
     ),
 
