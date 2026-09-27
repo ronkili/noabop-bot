@@ -56,3 +56,17 @@ HELP CENTER:
 
 MODERATION:
 Only /chatmute is included.
+
+
+GRAPHIC PANELS:
+- !h now creates a graphical Help Center card with the server image in the background.
+- /ticket-panel creates a graphical support panel with the server image in the background.
+- /staff-panel creates a graphical staff recruitment panel with only Apply For Staff below it.
+- panelBackgroundUrl is optional. If empty, the bot uses the Server Banner and then the Server Icon.
+
+VERIFY:
+- Put the Member role ID in memberRoleId.
+- Run /verify-panel.
+- Users click Verify and instantly receive Member.
+- There is NO number challenge.
+- Verify does NOT change channel permissions.
