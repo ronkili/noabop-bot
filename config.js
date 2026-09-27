@@ -10,6 +10,14 @@ module.exports = {
     "1489571427567796326",
 
   // =====================
+  // VERIFY
+  // =====================
+
+  // הרול שמקבלים בלחיצה על Verify
+  memberRoleId:
+    "1551947696644821072",
+
+  // =====================
   // STAFF
   // =====================
 
@@ -34,7 +42,7 @@ module.exports = {
   // =====================
 
   muteRoleId:
-    "1553761188087595109",
+    "1552408453031395468",
 
   // אופציונלי — השאר "" אם לא צריך לוגים.
   modLogsChannelId: "1533958151525630043",
@@ -66,5 +74,13 @@ module.exports = {
 
   // אופציונלי: לינק ישיר לתמונת רקע.
   // אם נשאר "", הבוט משתמש ב־Server Banner ואם אין אז Server Icon.
-  welcomeBackgroundUrl: ""
+  welcomeBackgroundUrl: "",
+
+  // =====================
+  // GRAPHIC PANELS
+  // =====================
+
+  // רקע ל־!h / Ticket Panel / Staff Panel.
+  // אם נשאר "", הבוט משתמש ב־Server Banner ואם אין אז Server Icon.
+  panelBackgroundUrl: ""
 };
