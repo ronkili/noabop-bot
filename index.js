@@ -742,6 +742,590 @@ async function createWelcomeCard(member) {
 }
 
 // =====================
+// GRAPHIC PANELS
+// =====================
+
+function getServerBackgroundUrl(guild) {
+  return (
+    config.panelBackgroundUrl ||
+    config.welcomeBackgroundUrl ||
+    guild.bannerURL({
+      extension: "png",
+      size: 2048
+    }) ||
+    guild.iconURL({
+      extension: "png",
+      size: 1024
+    })
+  );
+}
+
+async function createPanelCanvas(
+  guild,
+  width,
+  height,
+  stripeColor = "#5865f2"
+) {
+  const canvas =
+    createCanvas(width, height);
+
+  const ctx =
+    canvas.getContext("2d");
+
+  const background =
+    await loadOptionalImage(
+      getServerBackgroundUrl(guild)
+    );
+
+  if (background) {
+    drawCover(
+      ctx,
+      background,
+      0,
+      0,
+      width,
+      height
+    );
+  } else {
+    ctx.fillStyle =
+      "#07131d";
+
+    ctx.fillRect(
+      0,
+      0,
+      width,
+      height
+    );
+  }
+
+  ctx.fillStyle =
+    "rgba(2, 10, 18, 0.78)";
+
+  ctx.fillRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+  ctx.fillStyle =
+    stripeColor;
+
+  ctx.fillRect(
+    0,
+    0,
+    7,
+    height
+  );
+
+  return {
+    canvas,
+    ctx
+  };
+}
+
+async function drawGuildIcon(
+  ctx,
+  guild,
+  x,
+  y,
+  size
+) {
+  const icon =
+    await loadOptionalImage(
+      guild.iconURL({
+        extension: "png",
+        size: 512
+      })
+    );
+
+  if (!icon) {
+    return;
+  }
+
+  ctx.save();
+
+  roundedRect(
+    ctx,
+    x,
+    y,
+    size,
+    size,
+    12
+  );
+
+  ctx.clip();
+
+  drawCover(
+    ctx,
+    icon,
+    x,
+    y,
+    size,
+    size
+  );
+
+  ctx.restore();
+}
+
+function drawRtlText(
+  ctx,
+  text,
+  x,
+  y,
+  font,
+  color = "#ffffff"
+) {
+  ctx.direction = "rtl";
+  ctx.textAlign = "right";
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.fillText(
+    text,
+    x,
+    y
+  );
+}
+
+function drawLtrText(
+  ctx,
+  text,
+  x,
+  y,
+  font,
+  color = "#ffffff"
+) {
+  ctx.direction = "ltr";
+  ctx.textAlign = "left";
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.fillText(
+    text,
+    x,
+    y
+  );
+}
+
+async function createHelpCard(
+  guild,
+  requester,
+  createdAt,
+  reason = "בקשת עזרה חדשה",
+  claimedBy = null
+) {
+  const width = 740;
+  const height = 338;
+
+  const {
+    canvas,
+    ctx
+  } =
+    await createPanelCanvas(
+      guild,
+      width,
+      height,
+      "#6d38ff"
+    );
+
+  drawLtrText(
+    ctx,
+    "NoaBop • Help Center",
+    24,
+    34,
+    'bold 18px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "🆘 בקשת עזרה חדשה",
+    700,
+    76,
+    'bold 25px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    reason.slice(0, 55),
+    700,
+    106,
+    '18px "DejaVu Sans", Arial',
+    "#e8edf5"
+  );
+
+  const avatar =
+    await loadOptionalImage(
+      requester.displayAvatarURL({
+        extension: "png",
+        size: 256
+      })
+    );
+
+  const avatarX = 28;
+  const avatarY = 132;
+  const avatarSize = 42;
+
+  if (avatar) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(
+      avatarX + avatarSize / 2,
+      avatarY + avatarSize / 2,
+      avatarSize / 2,
+      0,
+      Math.PI * 2
+    );
+    ctx.clip();
+    ctx.drawImage(
+      avatar,
+      avatarX,
+      avatarY,
+      avatarSize,
+      avatarSize
+    );
+    ctx.restore();
+  }
+
+  const userText =
+    `@${requester.username}`;
+
+  ctx.font =
+    'bold 17px "DejaVu Sans", Arial';
+
+  const userPillWidth =
+    Math.min(
+      330,
+      ctx.measureText(
+        userText
+      ).width + 32
+    );
+
+  ctx.fillStyle =
+    "rgba(32, 142, 255, 0.95)";
+
+  roundedRect(
+    ctx,
+    78,
+    134,
+    userPillWidth,
+    38,
+    10
+  );
+
+  ctx.fill();
+
+  drawLtrText(
+    ctx,
+    userText,
+    94,
+    160,
+    'bold 17px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "📌 סטטוס",
+    700,
+    150,
+    'bold 20px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    claimedBy
+      ? "✅ בטיפול"
+      : "⌛ ממתין לצוות",
+    700,
+    179,
+    '19px "DejaVu Sans", Arial',
+    claimedBy
+      ? "#65e58c"
+      : "#ffe17a"
+  );
+
+  drawRtlText(
+    ctx,
+    "👤 משתמש",
+    700,
+    220,
+    'bold 20px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    requester.username,
+    700,
+    248,
+    '18px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "🛡️ מטפל",
+    700,
+    284,
+    'bold 20px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    claimedBy
+      ? claimedBy.username
+      : "עדיין לא נלקח",
+    700,
+    312,
+    '18px "DejaVu Sans", Arial',
+    claimedBy
+      ? "#8ec8ff"
+      : "#d3dae5"
+  );
+
+  const helpId =
+    String(createdAt)
+      .slice(-12);
+
+  drawLtrText(
+    ctx,
+    `NoaBop Help ID • ${helpId}`,
+    24,
+    316,
+    'bold 13px "DejaVu Sans", Arial',
+    "#e4e8ef"
+  );
+
+  return canvas.toBuffer(
+    "image/png"
+  );
+}
+
+async function createTicketPanelCard(guild) {
+  const width = 900;
+  const height = 520;
+
+  const {
+    canvas,
+    ctx
+  } =
+    await createPanelCanvas(
+      guild,
+      width,
+      height,
+      "#5865f2"
+    );
+
+  await drawGuildIcon(
+    ctx,
+    guild,
+    724,
+    28,
+    130
+  );
+
+  drawRtlText(
+    ctx,
+    "🎟️ מרכז התמיכה של NoaBop",
+    690,
+    64,
+    'bold 29px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "בחרו את סוג הפנייה שמתאים לכם באמצעות הכפתורים למטה.",
+    690,
+    108,
+    '20px "DejaVu Sans", Arial',
+    "#e3e8f0"
+  );
+
+  const sections = [
+    {
+      title:
+        "📌 פנייה להנהלה",
+      body:
+        "לנושאים פרטיים, חשובים או דברים שדורשים טיפול ישיר של ההנהלה."
+    },
+    {
+      title:
+        "💬 עזרה כללית",
+      body:
+        "לשאלות, תמיכה, הכוונה ועזרה כללית בשרת."
+    },
+    {
+      title:
+        "⚠️ דיווח על משתמש/צוות",
+      body:
+        "לדיווח על משתמש או איש צוות שעובר על החוקים או מפריע בשרת."
+    }
+  ];
+
+  let y = 174;
+
+  for (const section of sections) {
+    drawRtlText(
+      ctx,
+      section.title,
+      825,
+      y,
+      'bold 24px "DejaVu Sans", Arial'
+    );
+
+    drawRtlText(
+      ctx,
+      section.body,
+      825,
+      y + 33,
+      '17px "DejaVu Sans", Arial',
+      "#e0e5ed"
+    );
+
+    y += 104;
+  }
+
+  drawRtlText(
+    ctx,
+    "לאחר הלחיצה ייפתח עבורכם טיקט פרטי והצוות יגיע אליכם בהקדם.",
+    825,
+    472,
+    '18px "DejaVu Sans", Arial',
+    "#ffffff"
+  );
+
+  drawLtrText(
+    ctx,
+    "NoaBop • Premium Support Center",
+    24,
+    494,
+    'bold 14px "DejaVu Sans", Arial',
+    "#e4e8ef"
+  );
+
+  return canvas.toBuffer(
+    "image/png"
+  );
+}
+
+async function createStaffPanelCard(guild) {
+  const width = 900;
+  const height = 590;
+
+  const {
+    canvas,
+    ctx
+  } =
+    await createPanelCanvas(
+      guild,
+      width,
+      height,
+      "#7a35ff"
+    );
+
+  await drawGuildIcon(
+    ctx,
+    guild,
+    742,
+    26,
+    118
+  );
+
+  drawRtlText(
+    ctx,
+    "📣 דרושים אנשי צוות חדשים לשרת!",
+    700,
+    66,
+    'bold 28px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "אנחנו שמחים להודיע כי ההרשמה לצוות השרת פתוחה תמיד 🚀",
+    835,
+    126,
+    '20px "DejaVu Sans", Arial'
+  );
+
+  drawRtlText(
+    ctx,
+    "אם אתם אחראיים, בעלי רצון לעזור ורוצים לקחת חלק בניהול ובפיתוח השרת — זה המקום שלכם.",
+    835,
+    164,
+    '18px "DejaVu Sans", Arial',
+    "#e0e6ef"
+  );
+
+  drawRtlText(
+    ctx,
+    "📌 דרישות סף",
+    835,
+    222,
+    'bold 23px "DejaVu Sans", Arial'
+  );
+
+  const requirements = [
+    "• גיל מינימלי: 13+",
+    "• פעילות וזמינות מתאימה",
+    "• ידע בסיסי בחוקי השרת ויחסי אנוש טובים",
+    "• ללא עבר משמעותי בתקופה האחרונה"
+  ];
+
+  let y = 260;
+
+  for (const line of requirements) {
+    drawRtlText(
+      ctx,
+      line,
+      835,
+      y,
+      '18px "DejaVu Sans", Arial',
+      "#f0f3f7"
+    );
+
+    y += 32;
+  }
+
+  drawRtlText(
+    ctx,
+    "📝 איך זה עובד?",
+    835,
+    408,
+    'bold 23px "DejaVu Sans", Arial'
+  );
+
+  const steps = [
+    "1. לחצו על Apply For Staff.",
+    "2. ייפתח עבורכם טיקט בחינה פרטי.",
+    "3. ענו על כל השאלות בצורה מפורטת.",
+    "4. צוות ההנהלה יעבור על הבחינה ויחזור אליכם."
+  ];
+
+  y = 446;
+
+  for (const line of steps) {
+    drawRtlText(
+      ctx,
+      line,
+      835,
+      y,
+      '18px "DejaVu Sans", Arial'
+    );
+
+    y += 30;
+  }
+
+  drawRtlText(
+    ctx,
+    "⏰ ההרשמה פתוחה תמיד — בהצלחה לכל המשתתפים!",
+    835,
+    566,
+    'bold 18px "DejaVu Sans", Arial',
+    "#ffffff"
+  );
+
+  return canvas.toBuffer(
+    "image/png"
+  );
+}
+
+// =====================
 // TAKE ROLE
 // =====================
 
@@ -875,33 +1459,21 @@ const ticketTypes = {
   }
 };
 
-function ticketPanel() {
+async function ticketPanel(guild) {
+  const buffer =
+    await createTicketPanelCard(
+      guild
+    );
+
   return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("Blurple")
-        .setTitle(
-          "🎟️ NoaBop • מרכז התמיכה"
-        )
-        .setDescription(
-          [
-            "בחרו את סוג הפנייה המתאים באמצעות הכפתורים למטה.",
-            "",
-            "📌 **פנייה להנהלה**",
-            "לנושאים פרטיים או דברים שדורשים טיפול הנהלה.",
-            "",
-            "💬 **עזרה כללית**",
-            "לשאלות, תמיכה ועזרה בשרת.",
-            "",
-            "⚠️ **דיווח על משתמש/צוות**",
-            "לדיווח על משתמש או איש צוות שעובר על החוקים."
-          ].join("\n")
-        )
-        .setFooter({
-          text:
-            "NoaBop • Ticket System"
-        })
-        .setTimestamp()
+    files: [
+      new AttachmentBuilder(
+        buffer,
+        {
+          name:
+            "noabop-ticket-panel.png"
+        }
+      )
     ],
 
     components: [
@@ -947,30 +1519,23 @@ function ticketPanel() {
   };
 }
 
-function staffApplicationPanel() {
+async function staffApplicationPanel(
+  guild
+) {
+  const buffer =
+    await createStaffPanelCard(
+      guild
+    );
+
   return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("Purple")
-        .setTitle(
-          "📖 NoaBop • Staff Applications"
-        )
-        .setDescription(
-          [
-            "רוצים להצטרף לצוות?",
-            "",
-            "לחצו על **Apply For Staff** כדי לפתוח טיקט בחינה פרטי.",
-            "",
-            "בתוך הטיקט תקבלו את שאלון הבחינה המלא.",
-            "",
-            "⚠️ ספאם, טרול או זלזול במהלך הבחינה עלולים להוביל לסגירת המועמדות."
-          ].join("\n")
-        )
-        .setFooter({
-          text:
-            "NoaBop • Staff Team"
-        })
-        .setTimestamp()
+    files: [
+      new AttachmentBuilder(
+        buffer,
+        {
+          name:
+            "noabop-staff-panel.png"
+        }
+      )
     ],
 
     components: [
@@ -1564,27 +2129,30 @@ async function sendModLog(
 const activeVoice =
   new Map();
 
-function helpPanel(
+async function helpPanel(
+  guild,
   requester,
-  createdAt
+  createdAt,
+  reason
 ) {
+  const buffer =
+    await createHelpCard(
+      guild,
+      requester,
+      createdAt,
+      reason,
+      null
+    );
+
   return {
-    embeds: [
-      new EmbedBuilder()
-        .setColor("Blue")
-        .setTitle(
-          "🆘 NoaBop Help Center"
-        )
-        .setDescription(
-          [
-            `${requester} ביקש עזרה מהצוות.`,
-            "",
-            "איש צוות יכול ללחוץ על **Claim Help**."
-          ].join("\n")
-        )
-        .setTimestamp(
-          new Date(createdAt)
-        )
+    files: [
+      new AttachmentBuilder(
+        buffer,
+        {
+          name:
+            "noabop-help-center.png"
+        }
+      )
     ],
 
     components: [
@@ -1594,12 +2162,10 @@ function helpPanel(
             .setCustomId(
               `help_claim:${requester.id}:${createdAt}`
             )
-            .setLabel(
-              "Claim Help"
-            )
-            .setEmoji("🙋")
+            .setLabel("בטיפול")
+            .setEmoji("🛡️")
             .setStyle(
-              ButtonStyle.Success
+              ButtonStyle.Primary
             )
         )
     ]
@@ -1926,11 +2492,26 @@ client.on(
     const content =
       message.content.trim();
 
-    if (content === "!h") {
+    if (
+      content === "!h" ||
+      content.startsWith("!h ")
+    ) {
+      const createdAt =
+        Date.now();
+
+      const reason =
+        content.length > 2
+          ? content
+              .slice(2)
+              .trim()
+          : "בקשת עזרה חדשה";
+
       return message.reply(
-        helpPanel(
+        await helpPanel(
+          message.guild,
           message.author,
-          Date.now()
+          createdAt,
+          reason
         )
       );
     }
@@ -2021,6 +2602,85 @@ client.on(
 
         if (
           interaction.commandName ===
+          "verify-panel"
+        ) {
+          if (
+            !canSetupPanels(
+              interaction.member,
+              interaction.guild
+            )
+          ) {
+            return interaction.reply({
+              content:
+                "❌ אין לך גישה.",
+              flags:
+                MessageFlags.Ephemeral
+            });
+          }
+
+          if (!config.memberRoleId) {
+            return interaction.reply({
+              content:
+                "❌ חסר `memberRoleId` ב־config.js.",
+              flags:
+                MessageFlags.Ephemeral
+            });
+          }
+
+          await interaction.channel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setColor("Green")
+                .setTitle(
+                  "✅ NoaBop • Verify"
+                )
+                .setDescription(
+                  [
+                    "ברוכים הבאים לשרת!",
+                    "",
+                    "לחצו על **Verify** כדי לקבל את רול ה־Member ולקבל גישה לשרת.",
+                    "",
+                    "אין מספרים ואין שאלות — לחיצה אחת וזהו."
+                  ].join("\n")
+                )
+                .setThumbnail(
+                  interaction.guild.iconURL({
+                    size: 256
+                  })
+                )
+                .setFooter({
+                  text:
+                    "NoaBop • Verification System"
+                })
+                .setTimestamp()
+            ],
+
+            components: [
+              new ActionRowBuilder()
+                .addComponents(
+                  new ButtonBuilder()
+                    .setCustomId(
+                      "verify_member"
+                    )
+                    .setLabel("Verify")
+                    .setEmoji("✅")
+                    .setStyle(
+                      ButtonStyle.Success
+                    )
+                )
+            ]
+          });
+
+          return interaction.reply({
+            content:
+              "✅ פאנל ה־Verify נשלח.",
+            flags:
+              MessageFlags.Ephemeral
+          });
+        }
+
+        if (
+          interaction.commandName ===
           "ticket-panel"
         ) {
           if (
@@ -2038,7 +2698,9 @@ client.on(
           }
 
           await interaction.channel.send(
-            ticketPanel()
+            await ticketPanel(
+              interaction.guild
+            )
           );
 
           return interaction.reply({
@@ -2068,7 +2730,9 @@ client.on(
           }
 
           await interaction.channel.send(
-            staffApplicationPanel()
+            await staffApplicationPanel(
+              interaction.guild
+            )
           );
 
           return interaction.reply({
@@ -2380,6 +3044,96 @@ client.on(
         }
       }
 
+      // ---------- VERIFY ----------
+
+      if (
+        interaction.isButton() &&
+        interaction.customId ===
+          "verify_member"
+      ) {
+        if (!config.memberRoleId) {
+          return interaction.reply({
+            content:
+              "❌ חסר `memberRoleId` ב־config.js.",
+            flags:
+              MessageFlags.Ephemeral
+          });
+        }
+
+        const member =
+          await interaction.guild.members
+            .fetch(
+              interaction.user.id
+            )
+            .catch(() => null);
+
+        const role =
+          await interaction.guild.roles
+            .fetch(
+              config.memberRoleId
+            )
+            .catch(() => null);
+
+        const botMember =
+          await interaction.guild.members
+            .fetchMe()
+            .catch(() => null);
+
+        if (
+          !member ||
+          !role ||
+          !botMember
+        ) {
+          return interaction.reply({
+            content:
+              "❌ לא הצלחתי לטעון את המשתמש, הרול או הבוט.",
+            flags:
+              MessageFlags.Ephemeral
+          });
+        }
+
+        if (
+          member.roles.cache.has(
+            role.id
+          )
+        ) {
+          return interaction.reply({
+            content:
+              "✅ אתה כבר מאומת.",
+            flags:
+              MessageFlags.Ephemeral
+          });
+        }
+
+        if (
+          role.managed ||
+          !botMember.permissions.has(
+            PermissionFlagsBits.ManageRoles
+          ) ||
+          role.position >=
+            botMember.roles.highest.position
+        ) {
+          return interaction.reply({
+            content:
+              "❌ הבוט לא יכול לתת את רול ה־Member. ודא שיש `Manage Roles` ושרול NoaBop מעל Member.",
+            flags:
+              MessageFlags.Ephemeral
+          });
+        }
+
+        await member.roles.add(
+          role,
+          "NoaBop Verify"
+        );
+
+        return interaction.reply({
+          content:
+            "✅ אומתת בהצלחה! קיבלת את רול ה־Member.",
+          flags:
+            MessageFlags.Ephemeral
+        });
+      }
+
       // ---------- TAKE ROLE ----------
 
       if (
@@ -2571,24 +3325,58 @@ client.on(
 
         saveStaffStats();
 
-        return interaction.update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Green")
-              .setTitle(
-                "✅ Help Claimed"
+        const requester =
+          await interaction.client.users
+            .fetch(requesterId)
+            .catch(() => null);
+
+        const buffer =
+          requester
+            ? await createHelpCard(
+                interaction.guild,
+                requester,
+                createdAt,
+                "בקשת עזרה חדשה",
+                interaction.user
               )
-              .setDescription(
-                [
-                  `<@${requesterId}>`,
-                  "",
-                  `ה־Help נלקח על ידי ${interaction.user}.`
-                ].join("\n")
+            : null;
+
+        const updatePayload = {
+          components: [
+            new ActionRowBuilder()
+              .addComponents(
+                new ButtonBuilder()
+                  .setCustomId(
+                    `help_claimed:${interaction.user.id}`
+                  )
+                  .setLabel(
+                    `בטיפול • ${interaction.user.username}`
+                  )
+                  .setEmoji("✅")
+                  .setStyle(
+                    ButtonStyle.Success
+                  )
+                  .setDisabled(true)
               )
-              .setTimestamp()
-          ],
-          components: []
-        });
+          ]
+        };
+
+        if (buffer) {
+          updatePayload.attachments = [];
+          updatePayload.files = [
+            new AttachmentBuilder(
+              buffer,
+              {
+                name:
+                  "noabop-help-center-claimed.png"
+              }
+            )
+          ];
+        }
+
+        return interaction.update(
+          updatePayload
+        );
       }
 
       // ---------- TICKET CLAIM ----------
