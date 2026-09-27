@@ -1,0 +1,58 @@
+NOABOP — RAILWAY
+
+FILES:
+- index.js
+- deploy-commands.js
+- config.js
+- package.json
+
+ENVIRONMENT VARIABLE:
+TOKEN=your_bot_token
+
+VOLUME:
+Mount Path: /app/data
+
+START COMMAND:
+npm run deploy && npm start
+
+DISCORD DEVELOPER PORTAL -> BOT -> PRIVILEGED GATEWAY INTENTS:
+- SERVER MEMBERS INTENT: ON
+- MESSAGE CONTENT INTENT: ON
+
+RECOMMENDED BOT PERMISSIONS:
+- View Channels
+- Send Messages
+- Embed Links
+- Attach Files
+- Read Message History
+- Manage Channels
+- Manage Roles
+- Manage Messages
+
+IMPORTANT:
+The NoaBop managed role must be ABOVE:
+- Chat Mute role
+- all roles listed in takeRoleIds
+
+TAKE ROLE:
+Run /setup-take-role.
+The button label is fetched automatically from each Discord role name.
+
+TICKETS:
+Run /ticket-panel.
+
+STAFF APPLICATION:
+Run /staff-panel.
+
+STAFF STATS:
+!stats
+!stats @member
+Only Staff can use it.
+Shows Voice Time, Messages, Helps Taken, Tickets Taken and average claim/response times.
+It DOES NOT show roles, warns, removals, kicks/bans, etc.
+
+HELP CENTER:
+!h
+
+MODERATION:
+Only /chatmute is included.
