@@ -14,6 +14,10 @@ const commands = [
     .setDescription("בדיקת פינג של NoaBop"),
 
   new SlashCommandBuilder()
+    .setName("verify-panel")
+    .setDescription("שולח Verify פשוט בלחיצה אחת"),
+
+  new SlashCommandBuilder()
     .setName("ticket-panel")
     .setDescription("שולח את פאנל הטיקטים"),
 
