@@ -1,7 +1,7 @@
 {
   "name": "noabop-bot",
-  "version": "3.0.0",
-  "description": "NoaBop Discord bot - welcome, take roles, tickets, staff applications, chatmute and staff stats",
+  "version": "3.1.0",
+  "description": "NoaBop Discord bot - graphic help/ticket/staff panels, take roles, one-click verify, chatmute and staff stats",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
